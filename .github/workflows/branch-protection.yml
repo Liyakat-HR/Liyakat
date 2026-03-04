@@ -1,0 +1,24 @@
+name: Branch Protection Check
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  check-pr-target:
+    name: Enforce PR to main via development branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR source branch
+        run: |
+          echo "PR from: ${{ github.head_ref }} -> ${{ github.base_ref }}"
+          if [[ ! "${{ github.head_ref }}" =~ ^(development|hotfix/.+)$ ]]; then
+            echo "❌ Direct PRs to main are only allowed from 'development' or 'hotfix/*' branches."
+            echo "Please merge your changes into 'development' first."
+            exit 1
+          fi
+          echo "✅ PR source branch is valid."
