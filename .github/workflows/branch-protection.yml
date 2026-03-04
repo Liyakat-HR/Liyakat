@@ -13,7 +13,7 @@ jobs:
       - name: Check PR source branch
         run: |
           echo "PR from: ${{ github.head_ref }} -> ${{ github.base_ref }}"
-          if [[ "${{ github.head_ref }}" != "development" && "${{ github.head_ref }}" != "hotfix/"* ]]; then
+          if [[ ! "${{ github.head_ref }}" =~ ^(development|hotfix/.+)$ ]]; then
             echo "❌ Direct PRs to main are only allowed from 'development' or 'hotfix/*' branches."
             echo "Please merge your changes into 'development' first."
             exit 1

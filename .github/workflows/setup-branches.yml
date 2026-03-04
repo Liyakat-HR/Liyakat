@@ -1,0 +1,77 @@
+name: Setup Development Branch and Branch Protection
+
+on:
+  workflow_dispatch:
+    inputs:
+      setup_branch_protection:
+        description: 'Setup main branch protection rules'
+        required: false
+        default: 'true'
+        type: boolean
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/setup-branches.yml'
+
+permissions:
+  contents: write
+  administration: write
+
+jobs:
+  create-development-branch:
+    name: Create Development Branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create development branch if it doesn't exist
+        run: |
+          git fetch origin
+          if git ls-remote --heads origin development | grep -q development; then
+            echo "✅ 'development' branch already exists, skipping creation."
+          else
+            git checkout -b development
+            git push origin development
+            echo "✅ 'development' branch created from 'main'."
+          fi
+
+  setup-branch-protection:
+    name: Setup Main Branch Protection
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || github.event.inputs.setup_branch_protection != 'false' }}
+    steps:
+      - name: Protect main branch
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            try {
+              await github.rest.repos.updateBranchProtection({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                branch: 'main',
+                required_status_checks: {
+                  strict: true,
+                  contexts: ['Enforce PR to main via development branch']
+                },
+                enforce_admins: false,
+                required_pull_request_reviews: {
+                  dismiss_stale_reviews: true,
+                  require_code_owner_reviews: false,
+                  required_approving_review_count: 1
+                },
+                restrictions: null,
+                allow_force_pushes: false,
+                allow_deletions: false
+              });
+              console.log('✅ main branch protection rules applied successfully.');
+            } catch (error) {
+              console.log('⚠️ Could not apply branch protection (may require admin token):', error.message);
+              console.log('Please set branch protection manually in: Settings > Branches > Add rule');
+              core.warning('Branch protection requires admin access. Please configure manually.');
+            }
